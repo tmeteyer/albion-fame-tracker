@@ -1,5 +1,5 @@
 """
-Albion Online Fame & Silver Tracker
+Albion Fame Tracker
 Nécessite : Python 3.10+, npcap (https://npcap.com), scapy
 Lancer en tant qu'Administrateur.
 """

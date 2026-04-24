@@ -43,7 +43,7 @@ QUEUE_DRAIN = 50    # événements max à lire par tick
 class AlbionTrackerApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Albion Fame & Silver Tracker")
+        self.title("Albion Fame Tracker")
         self.geometry("900x650")
         self.minsize(780, 560)
         self.configure(bg=BG_DARK)
@@ -66,7 +66,7 @@ class AlbionTrackerApp(tk.Tk):
         header = tk.Frame(self, bg=BG_DARK)
         header.pack(fill="x", padx=16, pady=(12, 0))
 
-        tk.Label(header, text="⚔  Albion Fame & Silver Tracker",
+        tk.Label(header, text="⚔  Albion Fame Tracker",
                  font=FONT_TITLE, bg=BG_DARK, fg=ACCENT).pack(side="left")
 
         self._lbl_status = tk.Label(header, text="● Inactif",
