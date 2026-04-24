@@ -1,0 +1,8 @@
+{
+  "fame_event_codes": [82],
+  "silver_event_codes": [],
+  "fame_param_keys": [2],
+  "silver_param_keys": [3],
+  "debug_mode": true,
+  "notes": "UpdateFame: params[252]=82 (SHORT LE), params[2]/10000 * 1.5 (premium) = fame affichee"
+}
