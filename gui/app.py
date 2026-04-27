@@ -18,6 +18,7 @@ from core.albion import load_config, save_config, is_fame_event, is_silver_event
 from core.capture import CaptureThread, list_local_ips
 from core.tracker import SessionTracker
 from core.photon import MSG_EVENT
+import core.history as history
 
 # ─── Thème ───────────────────────────────────────────────────────────────────
 BG      = "#09090f"
@@ -49,8 +50,8 @@ class AlbionTrackerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Albion Tracker")
-        self.geometry("520x340")
-        self.minsize(440, 300)
+        self.geometry("640x360")
+        self.minsize(600, 320)
         self.configure(bg=BG)
         self.resizable(True, True)
 
@@ -90,6 +91,11 @@ class AlbionTrackerApp(tk.Tk):
                   padx=8, pady=3,
                   command=self._reset_session).pack(side="left", padx=(0, 4))
 
+        tk.Button(ctrl, text="💾", bg=SURFACE, fg=SILV_C,
+                  font=FT, relief="flat", cursor="hand2",
+                  padx=8, pady=3,
+                  command=self._save_session).pack(side="left", padx=(0, 4))
+
         self._btn_toggle = tk.Button(
             ctrl, text="▶  Démarrer",
             bg=GREEN, fg="#060610", font=FT_BOLD,
@@ -115,16 +121,19 @@ class AlbionTrackerApp(tk.Tk):
         self.nb.pack(fill="both", expand=True, padx=8, pady=8)
 
         self._tab_stats = tk.Frame(self.nb, bg=BG)
+        self._tab_hist  = tk.Frame(self.nb, bg=BG)
         self._tab_log   = tk.Frame(self.nb, bg=BG)
         self._tab_disc  = tk.Frame(self.nb, bg=BG)
         self._tab_cfg   = tk.Frame(self.nb, bg=BG)
 
         self.nb.add(self._tab_stats, text="  Stats  ")
+        self.nb.add(self._tab_hist,  text="  Historique  ")
         self.nb.add(self._tab_log,   text="  Journal  ")
         self.nb.add(self._tab_disc,  text="  Découverte  ")
         self.nb.add(self._tab_cfg,   text="  Config  ")
 
         self._build_stats_tab()
+        self._build_history_tab()
         self._build_log_tab()
         self._build_discovery_tab()
         self._build_config_tab()
@@ -336,6 +345,117 @@ class AlbionTrackerApp(tk.Tk):
         self._lbl_diag.grid(row=10, column=0, columnspan=3, padx=12)
 
     # ─── Actions ─────────────────────────────────────────────────────────────
+
+    def _build_history_tab(self):
+        p = self._tab_hist
+        p.columnconfigure(0, weight=1)
+        p.rowconfigure(0, weight=1)
+
+        cols = ("Titre", "Date", "Durée", "Fame", "Silver")
+        self._hist_tree = ttk.Treeview(p, columns=cols, show="headings", height=12)
+
+        widths = [180, 110, 70, 100, 100]
+        for col, w in zip(cols, widths):
+            self._hist_tree.heading(col, text=col)
+            self._hist_tree.column(col, width=w, anchor="w" if col == "Titre" else "e")
+
+        self._hist_tree.tag_configure("row", background=CARD, foreground=TEXT)
+
+        sb = ttk.Scrollbar(p, orient="vertical", command=self._hist_tree.yview)
+        self._hist_tree.configure(yscrollcommand=sb.set)
+        self._hist_tree.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=6)
+        sb.grid(row=0, column=1, sticky="ns", pady=6)
+
+        btn_f = tk.Frame(p, bg=BG)
+        btn_f.grid(row=1, column=0, columnspan=2, pady=(0, 6))
+        tk.Button(btn_f, text="Supprimer la sélection", bg=SURFACE, fg=RED,
+                  font=FT, relief="flat", cursor="hand2",
+                  command=self._delete_history_entry).pack()
+
+        self._refresh_history()
+
+    def _refresh_history(self):
+        for item in self._hist_tree.get_children():
+            self._hist_tree.delete(item)
+
+        def fmt(n):
+            if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
+            if n >= 1_000:     return f"{n/1_000:.0f}K"
+            return str(n)
+
+        def dur(s):
+            h, r = divmod(int(s), 3600)
+            m, sc = divmod(r, 60)
+            return f"{h:02d}:{m:02d}:{sc:02d}" if h else f"{m:02d}:{sc:02d}"
+
+        for entry in history.load():
+            self._hist_tree.insert("", "end", iid=entry['id'], tags=("row",), values=(
+                entry.get('title', ''),
+                f"{entry.get('date','')} {entry.get('time','')}",
+                dur(entry.get('duration_seconds', 0)),
+                fmt(entry.get('total_fame', 0)),
+                fmt(entry.get('total_silver', 0)),
+            ))
+
+    def _delete_history_entry(self):
+        selected = self._hist_tree.selection()
+        if not selected:
+            return
+        for iid in selected:
+            history.delete(iid)
+        self._refresh_history()
+
+    def _save_session(self):
+        t = self.tracker
+        if t.total_fame == 0 and t.total_silver == 0:
+            messagebox.showinfo("Session vide", "Aucune donnée à sauvegarder.")
+            return
+
+        # Dialog titre
+        dialog = tk.Toplevel(self)
+        dialog.title("Sauvegarder la session")
+        dialog.configure(bg=BG)
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Centrer
+        self.update_idletasks()
+        x = self.winfo_x() + self.winfo_width() // 2 - 160
+        y = self.winfo_y() + self.winfo_height() // 2 - 60
+        dialog.geometry(f"320x120+{x}+{y}")
+
+        tk.Label(dialog, text="Titre de la session", font=FT, bg=BG, fg=TEXT).pack(pady=(16, 4))
+        default = f"Session {time.strftime('%d/%m %H:%M')}"
+        entry_var = tk.StringVar(value=default)
+        entry = tk.Entry(dialog, textvariable=entry_var, font=FT,
+                         bg=SURFACE, fg=TEXT, insertbackground=TEXT,
+                         relief="flat", width=34)
+        entry.pack(padx=20)
+        entry.select_range(0, "end")
+        entry.focus_set()
+
+        def confirm(event=None):
+            title = entry_var.get().strip() or default
+            history.add(title, t.elapsed_seconds, t.total_fame, t.total_silver)
+            self._refresh_history()
+            dialog.destroy()
+            self.nb.select(1)  # Aller sur l'onglet Historique
+
+        def cancel(event=None):
+            dialog.destroy()
+
+        btn_f = tk.Frame(dialog, bg=BG)
+        btn_f.pack(pady=10)
+        tk.Button(btn_f, text="Sauvegarder", bg=GREEN, fg="#060610",
+                  font=FT_BOLD, relief="flat", cursor="hand2",
+                  padx=10, command=confirm).pack(side="left", padx=4)
+        tk.Button(btn_f, text="Annuler", bg=SURFACE, fg=MUTED,
+                  font=FT, relief="flat", cursor="hand2",
+                  padx=10, command=cancel).pack(side="left", padx=4)
+
+        entry.bind("<Return>", confirm)
+        entry.bind("<Escape>", cancel)
 
     def _refresh_ifaces(self):
         ips = list_local_ips()
