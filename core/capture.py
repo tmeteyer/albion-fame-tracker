@@ -275,13 +275,14 @@ class CaptureThread(threading.Thread):
                     log_entry['return_code'] = msg['return_code']
                 self._raw_file.write(json.dumps(log_entry) + '\n')
                 self._raw_file.flush()
-            except IOError:
+            except Exception:
                 pass
 
     @staticmethod
     def _serialize_params(params: dict) -> dict:
         result = {}
         for k, v in params.items():
+            k = k.hex() if isinstance(k, bytes) else k
             if isinstance(v, bytes):
                 result[k] = v.hex()
             elif isinstance(v, dict):
