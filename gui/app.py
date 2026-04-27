@@ -20,21 +20,25 @@ from core.tracker import SessionTracker
 from core.photon import MSG_EVENT
 
 # ─── Thème ───────────────────────────────────────────────────────────────────
-BG      = "#0e0e16"
-SURFACE = "#14141e"
-CARD    = "#1a1a26"
+BG      = "#09090f"
+SURFACE = "#0f0f18"
+CARD    = "#131320"
 ACCENT  = "#c84b68"
-FAME_C  = "#4ab8f0"
-SILV_C  = "#e8c040"
-TEXT    = "#c8c8dc"
-MUTED   = "#52526a"
+FAME_C  = "#5bc4f5"
+SILV_C  = "#f0c040"
+TIME_C  = "#9b8ff5"
+TEXT    = "#d2d2e8"
+MUTED   = "#46465e"
+SEP     = "#1e1e30"
 GREEN   = "#3dca88"
 RED     = "#d95555"
 
-FT       = ("Segoe UI", 11)
-FT_BOLD  = ("Segoe UI", 11, "bold")
-FT_NUM   = ("Segoe UI", 28, "bold")
-FT_TITLE = ("Segoe UI", 13, "bold")
+FT       = ("Segoe UI", 10)
+FT_BOLD  = ("Segoe UI", 10, "bold")
+FT_NUM   = ("Segoe UI", 30, "bold")
+FT_ICON  = ("Segoe UI", 18)
+FT_TITLE = ("Segoe UI", 12, "bold")
+FT_SMALL = ("Segoe UI", 9)
 FT_MONO  = ("Consolas", 9)
 
 REFRESH_MS  = 500
@@ -69,7 +73,7 @@ class AlbionTrackerApp(tk.Tk):
 
     def _build_header(self):
         h = tk.Frame(self, bg=BG)
-        h.pack(fill="x", padx=12, pady=(10, 0))
+        h.pack(fill="x", padx=14, pady=(12, 0))
 
         tk.Label(h, text="⚔  Albion Tracker", font=FT_TITLE,
                  bg=BG, fg=TEXT).pack(side="left")
@@ -78,28 +82,31 @@ class AlbionTrackerApp(tk.Tk):
         ctrl.pack(side="right")
 
         self._lbl_status = tk.Label(ctrl, text="● Inactif",
-                                    font=FT, bg=BG, fg=MUTED)
-        self._lbl_status.pack(side="left", padx=(0, 12))
+                                    font=FT_SMALL, bg=BG, fg=MUTED)
+        self._lbl_status.pack(side="left", padx=(0, 14))
 
         tk.Button(ctrl, text="↺", bg=SURFACE, fg=MUTED,
                   font=FT, relief="flat", cursor="hand2",
-                  padx=8, pady=2,
+                  padx=8, pady=3,
                   command=self._reset_session).pack(side="left", padx=(0, 4))
 
         self._btn_toggle = tk.Button(
             ctrl, text="▶  Démarrer",
-            bg=GREEN, fg="#0a0a10", font=FT_BOLD,
-            relief="flat", cursor="hand2", padx=12, pady=2,
+            bg=GREEN, fg="#060610", font=FT_BOLD,
+            relief="flat", cursor="hand2", padx=14, pady=3,
             command=self._toggle_capture
         )
         self._btn_toggle.pack(side="left")
+
+        # Séparateur
+        tk.Frame(self, bg=SEP, height=1).pack(fill="x", padx=0, pady=(10, 0))
 
     def _build_notebook(self):
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TNotebook", background=BG, borderwidth=0)
-        style.configure("TNotebook.Tab", background=SURFACE, foreground=MUTED,
-                        padding=[10, 4], font=FT)
+        style.configure("TNotebook.Tab", background=BG, foreground=MUTED,
+                        padding=[12, 5], font=FT_SMALL)
         style.map("TNotebook.Tab",
                   background=[("selected", CARD)],
                   foreground=[("selected", TEXT)])
@@ -122,11 +129,32 @@ class AlbionTrackerApp(tk.Tk):
         self._build_discovery_tab()
         self._build_config_tab()
 
-    def _card(self, parent, row, col, rowspan=1, colspan=1) -> tk.Frame:
-        f = tk.Frame(parent, bg=CARD)
-        f.grid(row=row, column=col, rowspan=rowspan, columnspan=colspan,
-               padx=4, pady=4, sticky="nsew")
-        return f
+    def _stat_card(self, parent, row, col, icon, color, label) -> tuple:
+        """Carte stat avec barre d'accent colorée, icône et labels."""
+        outer = tk.Frame(parent, bg=CARD)
+        outer.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+
+        # Barre d'accent colorée en haut
+        tk.Frame(outer, bg=color, height=3).pack(fill="x")
+
+        inner = tk.Frame(outer, bg=CARD)
+        inner.pack(fill="both", expand=True, padx=14, pady=(10, 12))
+
+        # Icône + label sur une ligne
+        hdr = tk.Frame(inner, bg=CARD)
+        hdr.pack(anchor="w")
+        tk.Label(hdr, text=icon, font=FT_ICON, bg=CARD, fg=color).pack(side="left")
+        tk.Label(hdr, text=f"  {label}", font=FT_BOLD, bg=CARD, fg=TEXT).pack(side="left", pady=(4, 0))
+
+        # Total (grand chiffre)
+        lbl_total = tk.Label(inner, text="0", font=FT_NUM, bg=CARD, fg=color)
+        lbl_total.pack(anchor="w", pady=(4, 0))
+
+        # Taux /h
+        lbl_rate = tk.Label(inner, text="— / h", font=FT, bg=CARD, fg=MUTED)
+        lbl_rate.pack(anchor="w", pady=(2, 0))
+
+        return lbl_total, lbl_rate
 
     def _build_stats_tab(self):
         p = self._tab_stats
@@ -135,32 +163,26 @@ class AlbionTrackerApp(tk.Tk):
         p.rowconfigure(0, weight=1)
         p.rowconfigure(1, weight=0)
 
-        # ── Fame ──
-        fc = self._card(p, 0, 0)
-        tk.Label(fc, text="FAME", font=FT, bg=CARD, fg=MUTED).pack(pady=(12, 2))
-        self._lbl_fame_total = tk.Label(fc, text="0", font=FT_NUM, bg=CARD, fg=FAME_C)
-        self._lbl_fame_total.pack()
-        tk.Frame(fc, bg=MUTED, height=1).pack(fill="x", padx=14, pady=(8, 6))
-        self._lbl_fame_rate = tk.Label(fc, text="— / h", font=FT_BOLD, bg=CARD, fg=MUTED)
-        self._lbl_fame_rate.pack(pady=(0, 12))
+        self._lbl_fame_total, self._lbl_fame_rate = self._stat_card(
+            p, 0, 0, "★", FAME_C, "RENOMMÉE")
 
-        # ── Silver ──
-        sc = self._card(p, 0, 1)
-        tk.Label(sc, text="SILVER", font=FT, bg=CARD, fg=MUTED).pack(pady=(12, 2))
-        self._lbl_silv_total = tk.Label(sc, text="0", font=FT_NUM, bg=CARD, fg=SILV_C)
-        self._lbl_silv_total.pack()
-        tk.Frame(sc, bg=MUTED, height=1).pack(fill="x", padx=14, pady=(8, 6))
-        self._lbl_silv_rate = tk.Label(sc, text="— / h", font=FT_BOLD, bg=CARD, fg=MUTED)
-        self._lbl_silv_rate.pack(pady=(0, 12))
+        self._lbl_silv_total, self._lbl_silv_rate = self._stat_card(
+            p, 0, 1, "◈", SILV_C, "ARGENT")
 
         # ── Timer ──
-        tc = self._card(p, 0, 2)
-        tk.Label(tc, text="DURÉE", font=FT, bg=CARD, fg=MUTED).pack(pady=(12, 2))
-        self._lbl_timer = tk.Label(tc, text="00:00:00",
-                                   font=FT_NUM, bg=CARD, fg=TEXT)
-        self._lbl_timer.pack(expand=True, pady=(0, 12))
+        tc = tk.Frame(p, bg=CARD)
+        tc.grid(row=0, column=2, padx=5, pady=5, sticky="nsew")
+        tk.Frame(tc, bg=TIME_C, height=3).pack(fill="x")
+        inner_t = tk.Frame(tc, bg=CARD)
+        inner_t.pack(fill="both", expand=True, padx=14, pady=(10, 12))
+        hdr_t = tk.Frame(inner_t, bg=CARD)
+        hdr_t.pack(anchor="w")
+        tk.Label(hdr_t, text="◷", font=FT_ICON, bg=CARD, fg=TIME_C).pack(side="left")
+        tk.Label(hdr_t, text="  DURÉE", font=FT_BOLD, bg=CARD, fg=TEXT).pack(side="left", pady=(4, 0))
+        self._lbl_timer = tk.Label(inner_t, text="00:00:00", font=FT_NUM, bg=CARD, fg=TIME_C)
+        self._lbl_timer.pack(anchor="w", pady=(4, 0))
 
-        # ── Barre de statut paquets ──
+        # Compteur paquets
         self._lbl_pkt_count = tk.Label(p, text="", font=("Consolas", 7),
                                        bg=BG, fg=MUTED)
         self._lbl_pkt_count.grid(row=1, column=0, columnspan=3, pady=(0, 2))
@@ -174,10 +196,10 @@ class AlbionTrackerApp(tk.Tk):
         self._tree = ttk.Treeview(p, columns=cols, show="headings", height=14)
 
         style = ttk.Style()
-        style.configure("Treeview", background=SURFACE, foreground=TEXT,
-                        fieldbackground=SURFACE, font=FT_MONO, rowheight=20)
-        style.configure("Treeview.Heading", background=CARD, foreground=MUTED,
-                        font=FT)
+        style.configure("Treeview", background=CARD, foreground=TEXT,
+                        fieldbackground=CARD, font=FT_MONO, rowheight=22)
+        style.configure("Treeview.Heading", background=SURFACE, foreground=MUTED,
+                        font=FT_SMALL)
         style.map("Treeview", background=[("selected", CARD)])
 
         for col, w in zip(cols, [60, 56, 76, 440]):
