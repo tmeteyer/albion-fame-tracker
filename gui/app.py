@@ -61,6 +61,7 @@ class AlbionTrackerApp(tk.Tk):
         self.capture_thread: CaptureThread | None = None
         self._raw_buffer: collections.deque = collections.deque(maxlen=2000)
         self._pkt_count = 0
+        self._player_id: int | None = None  # entity ID détecté via UpdateMoney (app_code=81)
 
         self._build_ui()
         self._schedule_refresh()
@@ -499,6 +500,7 @@ class AlbionTrackerApp(tk.Tk):
         self.tracker.reset()
         self._clear_log()
         self._pkt_count = 0
+        self._player_id = None
         self._lbl_pkt_count.configure(text="")
 
     def _clear_log(self):
@@ -612,9 +614,10 @@ class AlbionTrackerApp(tk.Tk):
         self._pkt_count += count
         if self.capture_thread:
             t = self.capture_thread
+            pid = f"  id:{self._player_id}" if self._player_id else "  id:?"
             self._lbl_pkt_count.configure(
                 text=f"reçus {t.raw_count}  parsés {t.parsed_count}  "
-                     f"frags {t.frag_count}/{t.frag_done}")
+                     f"frags {t.frag_count}/{t.frag_done}{pid}")
 
     def _process_entry(self, entry: dict):
         if entry.get('mode') == 'raw':
@@ -630,13 +633,22 @@ class AlbionTrackerApp(tk.Tk):
         if is_event:
             self._update_discovery(app_code, params, entry.get('dir', 'S→C'))
 
-        if is_event and is_fame_event(app_code, self.cfg):
+        # UpdateMoney (81) : fire uniquement pour notre personnage → détection fiable de l'entity ID
+        if is_event and app_code == 81 and self._player_id is None:
+            eid = params.get(0)
+            if isinstance(eid, int):
+                self._player_id = eid
+
+        entity_id = params.get(0)
+        is_mine = self._player_id is None or entity_id == self._player_id
+
+        if is_event and is_mine and is_fame_event(app_code, self.cfg):
             amount = extract_fame(params, self.cfg)
             if amount > 0:
                 self.tracker.add_fame(amount, source=f"event {app_code}")
                 self._log_row("fame", amount, params)
 
-        if is_event and is_silver_event(app_code, self.cfg):
+        if is_event and is_mine and is_silver_event(app_code, self.cfg):
             amount = extract_silver(params, self.cfg)
             if amount > 0:
                 self.tracker.add_silver(amount, source=f"event {app_code}")
