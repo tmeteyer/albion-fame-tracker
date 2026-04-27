@@ -15,7 +15,7 @@ from tkinter import ttk, messagebox
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.albion import load_config, save_config, is_fame_event, is_silver_event, extract_fame, extract_silver
-from core.capture import CaptureThread
+from core.capture import CaptureThread, list_local_ips
 from core.tracker import SessionTracker
 from core.photon import MSG_EVENT
 
@@ -268,35 +268,60 @@ class AlbionTrackerApp(tk.Tk):
             lambda: ", ".join(str(x) for x in self.cfg.get("silver_param_keys", [3])),
             hint="ex: 3")
 
+        # ── Interface réseau ──
+        tk.Label(p, text="Interface réseau", font=FT, bg=BG,
+                 fg=TEXT).grid(row=4, column=0, sticky="w", padx=12, pady=4)
+
+        iface_frame = tk.Frame(p, bg=BG)
+        iface_frame.grid(row=4, column=1, columnspan=2, sticky="ew", padx=6, pady=4)
+
+        self._iface_var = tk.StringVar(value=self.cfg.get("network_ip", "") or "auto")
+        self._iface_combo = ttk.Combobox(iface_frame, textvariable=self._iface_var,
+                                         font=FT, width=22, state="readonly")
+        self._iface_combo.pack(side="left")
+        self._refresh_ifaces()
+
+        tk.Button(iface_frame, text="↺", bg=SURFACE, fg=MUTED,
+                  font=FT, relief="flat", cursor="hand2", padx=6,
+                  command=self._refresh_ifaces).pack(side="left", padx=4)
+
         self._var_debug = tk.BooleanVar(value=self.cfg.get("debug_mode", True))
         tk.Checkbutton(p, text="Mode découverte (log tous les événements)",
                        variable=self._var_debug,
                        bg=BG, fg=TEXT, selectcolor=SURFACE,
                        font=FT, activebackground=BG,
                        activeforeground=TEXT).grid(
-            row=4, column=0, columnspan=3, sticky="w", padx=12, pady=6)
+            row=5, column=0, columnspan=3, sticky="w", padx=12, pady=6)
 
         tk.Button(p, text="Sauvegarder", bg=ACCENT, fg="white",
                   font=FT_BOLD, relief="flat", cursor="hand2",
                   command=self._save_config).grid(
-            row=5, column=0, columnspan=3, pady=8)
+            row=6, column=0, columnspan=3, pady=8)
 
         self._lbl_cfg_status = tk.Label(p, text="", font=FT, bg=BG, fg=GREEN)
-        self._lbl_cfg_status.grid(row=6, column=0, columnspan=3)
+        self._lbl_cfg_status.grid(row=7, column=0, columnspan=3)
 
         tk.Label(p, text=f"config : {os.path.abspath('config.json')}",
                  font=("Segoe UI", 8), bg=BG, fg=MUTED).grid(
-            row=7, column=0, columnspan=3, pady=2)
+            row=8, column=0, columnspan=3, pady=2)
 
         tk.Button(p, text="Diagnostic réseau (5s)", bg=SURFACE, fg=TEXT,
                   font=FT, relief="flat", cursor="hand2",
-                  command=self._run_diag).grid(row=8, column=0, columnspan=3, pady=(12, 2))
+                  command=self._run_diag).grid(row=9, column=0, columnspan=3, pady=(12, 2))
 
         self._lbl_diag = tk.Label(p, text="", font=FT, bg=BG, fg=MUTED,
                                   wraplength=580, justify="left")
-        self._lbl_diag.grid(row=9, column=0, columnspan=3, padx=12)
+        self._lbl_diag.grid(row=10, column=0, columnspan=3, padx=12)
 
     # ─── Actions ─────────────────────────────────────────────────────────────
+
+    def _refresh_ifaces(self):
+        ips = list_local_ips()
+        values = ["auto"] + ips
+        self._iface_combo["values"] = values
+        current = self._iface_var.get()
+        if current not in values:
+            self._iface_var.set("auto")
 
     def _toggle_capture(self):
         if self.capture_thread and self.capture_thread.is_alive():
@@ -306,8 +331,10 @@ class AlbionTrackerApp(tk.Tk):
 
     def _start_capture(self):
         self.cfg = load_config()
+        chosen = self.cfg.get("network_ip", "") or None
         self.capture_thread = CaptureThread(self.pkt_queue,
-                                            debug_mode=self.cfg.get("debug_mode", True))
+                                            debug_mode=self.cfg.get("debug_mode", True),
+                                            network_ip=chosen)
         self.capture_thread.start()
         self.tracker.start()
         self._btn_toggle.configure(text="⏹  Arrêter", bg=RED, fg="white")
@@ -413,6 +440,8 @@ class AlbionTrackerApp(tk.Tk):
         self.cfg["silver_event_codes"] = parse_ints(self._entry_silv_codes.get())
         self.cfg["fame_param_keys"]    = parse_ints(self._entry_fame_keys.get())
         self.cfg["silver_param_keys"]  = parse_ints(self._entry_silv_keys.get())
+        chosen = self._iface_var.get()
+        self.cfg["network_ip"]         = "" if chosen == "auto" else chosen
         self.cfg["debug_mode"]         = self._var_debug.get()
         save_config(self.cfg)
         self._lbl_cfg_status.configure(text="✓ Sauvegardé")

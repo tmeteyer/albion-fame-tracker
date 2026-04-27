@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "silver_event_codes": [62],
     "fame_param_keys": [2],
     "silver_param_keys": [3],
+    "network_ip": "",
     "debug_mode": True,
     "notes": (
         "Lancez le jeu en mode DEBUG, jouez quelques minutes "

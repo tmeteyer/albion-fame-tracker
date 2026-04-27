@@ -37,6 +37,21 @@ def _get_local_ip() -> str:
         return '0.0.0.0'
 
 
+def list_local_ips() -> list:
+    ips = []
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if ip not in ips and not ip.startswith('169.254'):
+                ips.append(ip)
+    except Exception:
+        pass
+    auto = _get_local_ip()
+    if auto not in ips:
+        ips.insert(0, auto)
+    return ips
+
+
 class FragmentBuffer:
     """Réassemble les messages Photon fragmentés."""
 
@@ -85,10 +100,12 @@ class FragmentBuffer:
 
 class CaptureThread(threading.Thread):
 
-    def __init__(self, packet_queue: queue.Queue, debug_mode: bool = False):
+    def __init__(self, packet_queue: queue.Queue, debug_mode: bool = False,
+                 network_ip: Optional[str] = None):
         super().__init__(daemon=True, name="AlbionCapture")
         self.packet_queue = packet_queue
         self.debug_mode = debug_mode
+        self.network_ip = network_ip
         self._stop_event = threading.Event()
         self._raw_file = None
         self.error: Optional[str] = None
@@ -112,7 +129,7 @@ class CaptureThread(threading.Thread):
             )
             return
 
-        local_ip = _get_local_ip()
+        local_ip = self.network_ip if self.network_ip else _get_local_ip()
         self.iface_name = local_ip
 
         if self.debug_mode:
