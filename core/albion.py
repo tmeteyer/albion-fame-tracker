@@ -85,7 +85,7 @@ def extract_fame(params: dict, cfg: dict) -> int:
 
 def extract_silver(params: dict, cfg: dict) -> int:
     """
-    Extract silver from TakeSilver event (params[252]=55).
+    Extract silver from TakeSilver event (params[252]=62).
     params[3] = YieldPreTax * 10000
     params[5] = GuildTax * 10000
     params[6] = ClusterTax * 10000
