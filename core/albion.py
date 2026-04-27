@@ -10,9 +10,9 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.json')
 # Default config (event codes à découvrir via le mode DEBUG)
 DEFAULT_CONFIG = {
     "fame_event_codes": [],
-    "silver_event_codes": [],
-    "fame_param_keys": [],
-    "silver_param_keys": [],
+    "silver_event_codes": [62],
+    "fame_param_keys": [2],
+    "silver_param_keys": [3],
     "debug_mode": True,
     "notes": (
         "Lancez le jeu en mode DEBUG, jouez quelques minutes "
@@ -83,10 +83,20 @@ def extract_fame(params: dict, cfg: dict) -> int:
 
 
 def extract_silver(params: dict, cfg: dict) -> int:
-    """Extract silver amount from event parameters."""
+    """
+    Extract silver from TakeSilver event (params[252]=55).
+    params[3] = YieldPreTax * 10000
+    params[5] = GuildTax * 10000
+    params[6] = ClusterTax * 10000
+    """
     for key in cfg.get('silver_param_keys', [PARAM_SILVER]):
         if key in params:
             val = params[key]
             if isinstance(val, (int, float)):
-                return int(val)
+                guild_tax  = params.get(5, 0)
+                cluster_tax = params.get(6, 0)
+                guild_tax  = float(guild_tax)  if isinstance(guild_tax,  (int, float)) else 0.0
+                cluster_tax = float(cluster_tax) if isinstance(cluster_tax, (int, float)) else 0.0
+                net = (float(val) - guild_tax - cluster_tax) / 10000.0
+                return max(0, int(net))
     return 0

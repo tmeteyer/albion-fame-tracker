@@ -1,6 +1,6 @@
 """
 Albion Fame Tracker
-Nécessite : Python 3.10+, npcap (https://npcap.com), scapy
+Nécessite : Python 3.10+
 Lancer en tant qu'Administrateur.
 """
 import sys

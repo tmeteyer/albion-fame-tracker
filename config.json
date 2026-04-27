@@ -1,6 +1,6 @@
 {
   "fame_event_codes": [82],
-  "silver_event_codes": [],
+  "silver_event_codes": [62],
   "fame_param_keys": [2],
   "silver_param_keys": [3],
   "debug_mode": true,

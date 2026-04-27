@@ -13,30 +13,14 @@ if errorlevel 1 (
 )
 echo [OK] Python detecte
 
-REM Installer scapy
 echo.
-echo Installation de scapy...
-pip install scapy --quiet
-if errorlevel 1 (
-    echo [ERREUR] Impossible d'installer scapy.
-    pause
-    exit /b 1
-)
-echo [OK] scapy installe
-
+echo Aucune dependance supplementaire requise.
+echo Le tracker utilise uniquement les modules standard de Python.
 echo.
 echo ============================================================
-echo  ETAPE MANUELLE REQUISE : Installez npcap
+echo  Installation terminee.
+echo  Lancez le tracker avec lancer.bat
+echo  (clic droit ^> Executer en tant qu'administrateur)
 echo ============================================================
-echo.
-echo  npcap est le driver de capture reseau (open-source, gratuit).
-echo  Telechargez-le ici : https://npcap.com/#download
-echo  Lors de l'installation, cochez "WinPcap API-compatible mode"
-echo.
-echo  Sans npcap, la capture de paquets ne fonctionnera pas.
-echo ============================================================
-echo.
-echo Installation terminee. Lancez le tracker avec :
-echo   lancer.bat   (clic droit ^> Executer en tant qu'administrateur)
 echo.
 pause

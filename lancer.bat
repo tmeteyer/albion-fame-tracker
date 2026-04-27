@@ -12,6 +12,6 @@ cd /d "%~dp0"
 python main.py
 if errorlevel 1 (
     echo.
-    echo Une erreur s'est produite. Verifiez que scapy et npcap sont installes.
+    echo Une erreur s'est produite. Verifiez que Python est installe et relancez en administrateur.
     pause
 )

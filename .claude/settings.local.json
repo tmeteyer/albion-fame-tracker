@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(xargs grep *)",
+      "Bash(awk '/UpdateMoney,/,/UpdateFame,/ {print NR\": \"$0}' /tmp/AlbionOnline-StatisticsAnalysis/src/StatisticsAnalysisTool/Network/EventCodes.cs)",
+      "Bash(awk 'BEGIN {count=0} /enum EventCodes/,/^}/ {if \\(/,/\\) {gsub\\(/.*= | .*/, \"\"\\); if \\(NF\\) {print count\": \"$0; count++}}}' /tmp/AlbionOnline-StatisticsAnalysis/src/StatisticsAnalysisTool/Network/EventCodes.cs)",
+      "Bash(grep -v \"^//\")",
+      "Bash(awk '/public enum EventCodes/,/^}/ {print NR-5\": \"$0}' /tmp/AlbionOnline-StatisticsAnalysis/src/StatisticsAnalysisTool/Network/EventCodes.cs)"
+    ]
+  }
+}

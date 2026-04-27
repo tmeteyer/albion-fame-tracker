@@ -396,29 +396,52 @@ class AlbionTrackerApp(tk.Tk):
             self._disc_tree.delete(item)
 
     def _run_diag(self):
-        """Capture tous les paquets UDP pendant 5 secondes pour tester npcap."""
+        """Capture tous les paquets UDP pendant 5 secondes via raw socket."""
         self._lbl_diag.configure(text="Capture en cours (5 sec)...", fg=TEXT_DIM)
         self.update_idletasks()
 
         import threading
+        import socket as _socket
+        import struct as _struct
         result = {"udp_total": 0, "port_5056": 0, "error": None}
 
         def _diag():
             try:
-                from scapy.all import sniff, UDP, conf, get_if_list
-                from core.capture import _detect_iface
-                conf.verb = 0
-                detected = _detect_iface()
-                iface_arg = detected if detected else get_if_list()
-
-                def _count(pkt):
-                    if UDP in pkt:
+                from core.capture import _get_local_ip, is_admin
+                if not is_admin():
+                    result["error"] = "Droits administrateur requis."
+                    return
+                local_ip = _get_local_ip()
+                sock = _socket.socket(_socket.AF_INET, _socket.SOCK_RAW, _socket.IPPROTO_UDP)
+                sock.bind((local_ip, 0))
+                sock.setsockopt(_socket.IPPROTO_IP, _socket.IP_HDRINCL, 1)
+                sock.ioctl(_socket.SIO_RCVALL, _socket.RCVALL_ON)
+                sock.settimeout(1.0)
+                deadline = time.time() + 5.0
+                try:
+                    while time.time() < deadline:
+                        try:
+                            data, _ = sock.recvfrom(65535)
+                        except _socket.timeout:
+                            continue
+                        if len(data) < 20:
+                            continue
+                        if data[9] != 17:
+                            continue
+                        ihl = (data[0] & 0x0F) * 4
+                        if len(data) < ihl + 8:
+                            continue
                         result["udp_total"] += 1
-                        udp = pkt[UDP]
-                        if udp.sport == 5056 or udp.dport == 5056:
+                        sport = _struct.unpack_from('>H', data, ihl)[0]
+                        dport = _struct.unpack_from('>H', data, ihl + 2)[0]
+                        if sport == 5056 or dport == 5056:
                             result["port_5056"] += 1
-
-                sniff(iface=iface_arg, prn=_count, store=False, timeout=5)
+                finally:
+                    try:
+                        sock.ioctl(_socket.SIO_RCVALL, _socket.RCVALL_OFF)
+                    except OSError:
+                        pass
+                    sock.close()
             except Exception as e:
                 result["error"] = str(e)
 
@@ -432,19 +455,18 @@ class AlbionTrackerApp(tk.Tk):
                 text=f"Erreur : {result['error']}", fg=RED)
         elif result["udp_total"] == 0:
             self._lbl_diag.configure(
-                text="0 paquet UDP capturé — npcap ne fonctionne pas correctement.\n"
-                     "Réinstallez npcap en cochant 'WinPcap API-compatible mode'.",
+                text="0 paquet UDP capturé — vérifiez que le tracker est lancé en administrateur.",
                 fg=RED)
         elif result["port_5056"] == 0:
             self._lbl_diag.configure(
                 text=f"{result['udp_total']} paquets UDP capturés, mais 0 sur le port 5056.\n"
-                     "npcap fonctionne. Albion n'envoie peut-être pas encore de trafic "
+                     "La capture fonctionne. Albion n'envoie peut-être pas encore de trafic "
                      "(connectez-vous à un monde) ou utilise un port différent.",
                 fg=ACCENT2)
         else:
             self._lbl_diag.configure(
                 text=f"OK — {result['udp_total']} paquets UDP dont {result['port_5056']} "
-                     f"sur le port 5056 (Albion). npcap fonctionne correctement.",
+                     f"sur le port 5056 (Albion). La capture fonctionne correctement.",
                 fg=GREEN)
 
     def _save_config(self):
